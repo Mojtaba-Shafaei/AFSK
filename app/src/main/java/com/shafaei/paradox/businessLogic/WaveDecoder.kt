@@ -1,6 +1,6 @@
 package com.shafaei.paradox.businessLogic
 
-import com.shafaei.paradox.constants.Modulation.LEADER.MODULATION_LEADER_BITS_SIZE
+import com.shafaei.paradox.constants.Modulation.LEADER.MODULATION_LEADER_ID_BITS_SIZE
 import com.shafaei.paradox.constants.Modulation.LEADER.MODULATION_LEADER_BYTE_SIZE
 
 class WaveDecoder {
@@ -30,8 +30,10 @@ class WaveDecoder {
   * Each Byte contains 11 bits, 1 bit 0 + 8 bits(any value) + 2 bits 1 so (650 * 11) = 7,172 bits
   */
  val dummyLeadArray: ArrayList<Int> by lazy {
-  val leaderArray = ArrayList<Int>(MODULATION_LEADER_BITS_SIZE)
+  val leaderArray = ArrayList<Int>(MODULATION_LEADER_ID_BITS_SIZE)
   repeat(MODULATION_LEADER_BYTE_SIZE) { leaderArray.addAll(ONE_WAVE_BYTE) }
+  leaderArray.addAll(listOf(0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1)) // 0x42
+  leaderArray.addAll(listOf(0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1)) //0x3 in LSB
   leaderArray
  }
  
@@ -41,4 +43,10 @@ class WaveDecoder {
   repeat(129) { endArray.addAll(ONE_WAVE_BYTE) } // add 129 wave bytes of 0xFF
   endArray
  }
+ 
+ fun convertLsbByteToInt(byte: Byte): Int {
+  return byte.toInt()
+ }
+ 
+ fun stereoToMono() {}
 }

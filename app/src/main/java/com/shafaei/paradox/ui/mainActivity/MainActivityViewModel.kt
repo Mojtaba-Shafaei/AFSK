@@ -3,11 +3,12 @@ package com.shafaei.paradox.ui.mainActivity
 import androidx.lifecycle.ViewModel
 import com.shafaei.paradox.businessLogic.WaveDecoder
 import com.shafaei.paradox.constants.Modulation
-import com.shafaei.paradox.constants.Modulation.LEADER
 import com.shafaei.paradox.constants.Modulation.MODULATION_2T_VALUE
 import com.shafaei.paradox.constants.Modulation.MODULATION_BAR_BYTE_COUNT
 import com.shafaei.paradox.constants.Modulation.MODULATION_BYTE_BITS_SIZE
 import com.shafaei.paradox.constants.Modulation.MODULATION_T_VALUE
+import com.shafaei.paradox.kotlinExt.toBitsString
+import com.shafaei.paradox.kotlinExt.toWordInt
 import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
@@ -15,6 +16,7 @@ import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.BehaviorSubject
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.math.sign
 
 class MainActivityViewModel(private val decoder: WaveDecoder) : ViewModel() {
  private val mDisposables = CompositeDisposable()
@@ -36,17 +38,23 @@ class MainActivityViewModel(private val decoder: WaveDecoder) : ViewModel() {
     // keeps converted wave bars as bits
     val bitList = ArrayList<Int>()
   
-    var valuePrev: ByteArray? = null
-    var valueCurrent: ByteArray
+    var valuePrev: Int? = null
+    var valueCurrent: Int
     var counter = 0
   
-    for(index in 0..(stereoBytes.size - MODULATION_BAR_BYTE_COUNT) step MODULATION_BAR_BYTE_COUNT) {
+    val toIndex = stereoBytes.size - MODULATION_BAR_BYTE_COUNT
+    for(index in 0 until toIndex step MODULATION_BAR_BYTE_COUNT) {
      valueCurrent = stereoBytes.copyOfRange(index, index + MODULATION_BAR_BYTE_COUNT)
+      .run {
+       (((this[1].toBitsString() + this[0].toBitsString()).toWordInt()) +
+         ((this[3].toBitsString() + this[2].toBitsString()).toWordInt())
+         ) / 2
+      }
    
-     if(!valueCurrent.contentEquals(valuePrev)) {
+     if(valueCurrent.sign != valuePrev?.sign) {
       when(counter) {
-       Modulation.MODULATION_T_BAR_COUNT -> bitList.add(MODULATION_T_VALUE)
-       Modulation.MODULATION_2T_BAR_COUNT -> bitList.add(MODULATION_2T_VALUE)
+       in 12 .. 15 -> bitList.add(MODULATION_T_VALUE)
+       in 25 .. 30 -> bitList.add(MODULATION_2T_VALUE)
        else -> { /*NOOP*/
        }
       }
@@ -60,9 +68,9 @@ class MainActivityViewModel(private val decoder: WaveDecoder) : ViewModel() {
     // find beginning index of LEADER
     val indexOfStartingLeader = Collections.indexOfSubList(bitList, decoder.dummyLeadArray)
     // find beginning index of data
-    val indexOfStartData = indexOfStartingLeader + LEADER.MODULATION_LEADER_TOTAL_BITS_SIZE
+    val indexOfStartData = indexOfStartingLeader + decoder.dummyLeadArray.size
   
-    // find begging index of END BLOCK
+    // find beginning index of END BLOCK
     val indexOfStartingEndBlock = Collections.lastIndexOfSubList(bitList, decoder.dummyEndBlockArray)
   
     // extract the data bit streams

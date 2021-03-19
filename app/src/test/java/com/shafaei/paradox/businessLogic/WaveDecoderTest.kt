@@ -3,6 +3,8 @@ package com.shafaei.paradox.businessLogic
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
+import java.util.*
+import kotlin.collections.ArrayList
 
 class WaveDecoderTest {
  lateinit var mWaveDecoder: WaveDecoder
@@ -26,4 +28,8 @@ class WaveDecoderTest {
  }
  
  ///////////////////////////////////////////////////////////////////////////////////////////////////
+ @Test
+ fun dummyLeadArray_ReturnTrue() {
+  Assert.assertEquals(7172, mWaveDecoder.dummyLeadArray.size)
+ }
 }
