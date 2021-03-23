@@ -7,9 +7,11 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.mojtaba_shafaei.android.ErrorMessage.State
 import com.shafaei.paradox.databinding.ActivityMainBinding
+import com.shafaei.paradox.rx.RxSingleSchedulers
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.core.parameter.parametersOf
 import java.io.File
 import java.io.InputStream
 import java.io.PrintWriter
@@ -17,7 +19,7 @@ import java.io.PrintWriter
 class MainActivity : AppCompatActivity() {
  private val TAG = "MainActivity"
  private lateinit var viewBinding: ActivityMainBinding
- private val mViewModel: MainActivityViewModel by viewModel()
+ private val mViewModel: MainActivityViewModel by viewModel { parametersOf(RxSingleSchedulers.DEFAULT) }
  
  private val mDisposables = CompositeDisposable()
  

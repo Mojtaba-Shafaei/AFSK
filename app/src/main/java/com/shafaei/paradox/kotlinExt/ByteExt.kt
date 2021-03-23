@@ -6,7 +6,3 @@ package com.shafaei.paradox.kotlinExt
 fun Byte.toBitsString(): String {
  return String.format("%8s", Integer.toBinaryString(this.toInt() and 0xFF)).replace(' ', '0')
 }
-
-fun Byte.toBitsString2(): String {
- return String.format("%8s", Integer.toBinaryString(this.toInt() and 0xFF)).replace(' ', '0')
-}

@@ -3,25 +3,28 @@ package com.shafaei.paradox.ui.mainActivity
 import androidx.lifecycle.ViewModel
 import com.shafaei.paradox.businessLogic.WaveDecoder
 import com.shafaei.paradox.constants.Modulation
+import com.shafaei.paradox.constants.Modulation.MODULATION_2T_BAR_COUNT_RANGE
 import com.shafaei.paradox.constants.Modulation.MODULATION_2T_VALUE
 import com.shafaei.paradox.constants.Modulation.MODULATION_BAR_BYTE_COUNT
 import com.shafaei.paradox.constants.Modulation.MODULATION_BYTE_BITS_SIZE
+import com.shafaei.paradox.constants.Modulation.MODULATION_T_BAR_COUNT_RANGE
 import com.shafaei.paradox.constants.Modulation.MODULATION_T_VALUE
 import com.shafaei.paradox.kotlinExt.toBitsString
 import com.shafaei.paradox.kotlinExt.toWordInt
+import com.shafaei.paradox.rx.RxSingleSchedulers
 import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.BehaviorSubject
+import org.koin.core.parameter.parametersOf
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.sign
 
-class MainActivityViewModel(private val decoder: WaveDecoder) : ViewModel() {
+class MainActivityViewModel(private val decoder: WaveDecoder, private val rxSingleSchedulers: RxSingleSchedulers) : ViewModel() {
  private val mDisposables = CompositeDisposable()
  private val mStates: BehaviorSubject<ViewState> = BehaviorSubject.create()
- val states: Observable<ViewState> = mStates
+ val states: Observable<ViewState> = mStates.distinctUntilChanged()
  //////////////////////////////////////////////////////////////////////////////////////////////////
  
  fun decodeWaveFile(fileName: String, rawBytes: ByteArray) {
@@ -44,6 +47,8 @@ class MainActivityViewModel(private val decoder: WaveDecoder) : ViewModel() {
   
     val toIndex = stereoBytes.size - MODULATION_BAR_BYTE_COUNT
     for(index in 0 until toIndex step MODULATION_BAR_BYTE_COUNT) {
+     // convert each 4 bytes to an integer value. So the stereo will converts to mono(2 bytes) and finally I have a decimal number for that
+     // converting stereo to mono done by getting average of 2 channels
      valueCurrent = stereoBytes.copyOfRange(index, index + MODULATION_BAR_BYTE_COUNT)
       .run {
        (((this[1].toBitsString() + this[0].toBitsString()).toWordInt()) +
@@ -53,9 +58,9 @@ class MainActivityViewModel(private val decoder: WaveDecoder) : ViewModel() {
    
      if(valueCurrent.sign != valuePrev?.sign) {
       when(counter) {
-       in 12 .. 15 -> bitList.add(MODULATION_T_VALUE)
-       in 25 .. 30 -> bitList.add(MODULATION_2T_VALUE)
-       else -> { /*NOOP*/
+       in MODULATION_T_BAR_COUNT_RANGE -> bitList.add(MODULATION_T_VALUE)
+       in MODULATION_2T_BAR_COUNT_RANGE -> bitList.add(MODULATION_2T_VALUE)
+       else -> { /* NOOP-this kind of data known as noise or silent, I ignore them to remove from the output*/
        }
       }
       valuePrev = valueCurrent
@@ -66,12 +71,12 @@ class MainActivityViewModel(private val decoder: WaveDecoder) : ViewModel() {
     }
   
     // find beginning index of LEADER
-    val indexOfStartingLeader = Collections.indexOfSubList(bitList, decoder.dummyLeadArray)
+    val indexOfStartingLeader = Collections.indexOfSubList(bitList, Modulation.LEAD_DATA)
     // find beginning index of data
-    val indexOfStartData = indexOfStartingLeader + decoder.dummyLeadArray.size
+    val indexOfStartData = indexOfStartingLeader + Modulation.LEAD_DATA.size
   
     // find beginning index of END BLOCK
-    val indexOfStartingEndBlock = Collections.lastIndexOfSubList(bitList, decoder.dummyEndBlockArray)
+    val indexOfStartingEndBlock = Collections.lastIndexOfSubList(bitList, Modulation.END_BLOCK_DATA)
   
     // extract the data bit streams
     val dataBits = bitList.subList(indexOfStartData, indexOfStartingEndBlock)
@@ -88,11 +93,10 @@ class MainActivityViewModel(private val decoder: WaveDecoder) : ViewModel() {
     }
     result
    }
-    .observeOn(Schedulers.computation())
+    .compose(rxSingleSchedulers.applySchedulers())
     .toObservable()
     .map { ViewState(data = MainData(fileName = fileName, decodedData = it.joinToString(), count = it.size)) }
     .startWith(ViewState(loading = true))
-    .subscribeOn(Schedulers.io())
     .subscribe({ mStates.onNext(it) }, { mStates.onNext(ViewState(error = it)) })
   )
   
